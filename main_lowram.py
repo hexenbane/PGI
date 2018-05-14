@@ -17,6 +17,7 @@ def update_progress(job_title, progress):
     sys.stdout.write(msg)
     sys.stdout.flush()
 
+
 # Con este bloque se actualiza el Progress Bar
 i = 1
 time.sleep(0.1)
@@ -26,6 +27,11 @@ update_progress("Start Compression", i / 8.0)
 root = tkinter.Tk()
 root.withdraw()
 file_path = filedialog.askopenfilename()
+
+if file_path == '':
+    print(" ----> Cancelar Proceso")
+    exit()
+
 
 # print("tkinter OK")
 i = i + 1
@@ -37,6 +43,10 @@ ruta = os.path.splitext(file_path)[0]
 filetype = os.path.splitext(file_path)[1]
 folder = os.path.dirname(file_path)
 
+# Con la libreria de PyPDF se cuentan las hojas contenidas en el PDF
+pdf = PyPDF2.PdfFileReader(open(file_path, "rb"), strict=False)
+pags = pdf.getNumPages()
+
 i = i + 1
 time.sleep(0.5)
 update_progress("Path OK", i / 8.0)
@@ -46,102 +56,80 @@ update_progress("Path OK", i / 8.0)
 # en esta parte se puede seleccionar la resolucion, parece que 150 a 300 es lo mas ideal
 
 # GSPath = "C:/Program Files/gs/gs9.19/bin/gswin64.exe"
-GSPath = "C:/Program Files/gs/gs9.21/bin/gswin64.exe"
-GSBatchBitmap = "%d.bmp"
+GSPath = "C:/Users/[____]/Portable Software/Ghostscript/bin/gswin32c"
+
+
 GSDevice = "-sDEVICE=bmpgray"
+GSDevice_pdf = "-sDEVICE=pdfwrite"
 GSOption1 = "-dNOPAUSE"
 GSOption2 = "-dBATCH"
 GSRes = "-r300"
 GSOption3 = "-o"
-GSRuta = folder + "/" + GSBatchBitmap
+GSQuite= "-q"
 GSPdf = file_path
+GSOutput = "-sOutputFile=" + ruta + GSRes + ".pdf"
 
-argsa = [GSPath, GSDevice, GSOption1, GSOption2, GSRes, GSOption3, GSRuta, GSPdf]
-subprocess.call(argsa)
+#IMPath = "C:/Program Files/ImageMagick-7.0.5-Q16/convert.exe"
 
-# print("Ghostscript OK")
-i = i + 1
-time.sleep(0.5)
-update_progress("Ghostscript OK", i / 8.0)
-
-# Se arma el comando en ImageMagick, siendo un TIFF G4, se tiene que hacer un pdf directo
-# Pero en PDF muy largos usa mucha memoria, puede que lo ideal sea despues ir imagen por imagen y comprimir
-# Para despues integrar en un solo PDF
-
-# IMPath = "C:/Users/gamah/Personal Software/ImageMagick/convert.exe"
-# IMPath = "C:/Users/Hector/Portable Software/ImageMagick 2/convert.exe"
-IMPath = "C:/Program Files/ImageMagick-7.0.5-Q16/convert.exe"
+IMPath = "C:/Users/[___]/Portable Software/ImageMagick/convert.exe"
 
 IMOption1_a = "-threshold"
-IMOption1_b = "50%"
+IMOption1_b = "75%"
 IMOption2_a = "-compress"
 IMOption2_b = "group4"
-NewPDFPath = ruta + GSRes + filetype
-IMFullCommand = [IMPath]
 
-i = i + 1
-time.sleep(0.5)
-update_progress("Variable ImageMagick OK", i / 8.0)
 
-# Aqui doy de alta dos variables que guardaran los nombres de los bitmaps y sus rutas
+NewPDFs_list=[]
 
-BitmapNames = ""
-BitmapNames_list = []
+for pag in range(1, pags + 1, 1):
+	GSBatchBitmap = str(pag) + ".bmp"
+	GSRuta = folder + "/" + GSBatchBitmap
+	GSPageStart = "-dFirstPage=" + str(pag)
+	GSPageLast = "-dLastPage=" + str(pag)
+	argsa = [GSPath, GSDevice, GSOption1, GSOption2, GSRes, GSOption3, GSRuta, GSQuite, GSPageStart, GSPageLast, GSPdf]
+	
+	subprocess.call(argsa)
+	
+	BitmapNames = folder + "/" + str(pag) + ".bmp"
 
-PdfNames = ""
-PdfNames_List = []
+	
+	IMFullCommand = [IMPath]
+	
+	IMFullCommand.append(BitmapNames)
+	IMFullCommand.append(IMOption1_a)
+	IMFullCommand.append(IMOption1_b)
+	IMFullCommand.append(IMOption2_a)
+	IMFullCommand.append(IMOption2_b)
+	
+	NewPDFPath = ruta + "_" + str(pag) + "_" + GSRes + filetype
+	NewPDFs_list.append(NewPDFPath)
+	
+	IMFullCommand.append(NewPDFPath)
+	
+	subprocess.call(IMFullCommand)
+	
+	os.remove(BitmapNames)
 
-PdfNames_List_osdel = []
+argsb = [GSPath, GSDevice_pdf, GSOption1, GSOption2, GSQuite, GSOutput]
+argsb.extend(NewPDFs_list)
 
-# Con la libreria de PyPDF se cuentan las hojas contenidas en el PDF
-pdf = PyPDF2.PdfFileReader(open(file_path, "rb"))
-pags = pdf.getNumPages()
-# pags = 88
+subprocess.call(argsb)
 
-# print("PyPDF OK")
+for x in NewPDFs_list:
+	os.remove(x)
+ 
 i = i + 1
 time.sleep(0.5)
 update_progress("Count Pages OK", i / 8.0)
 
 # Sabiendo el numero de hojas entonces genero la lista de nombres para integrarlo en un comando
 
-for j in range(1, pags + 1, 1):
-    IMFullCommand = [IMPath]
-    BitmapNames = folder + "/" + str(j) + ".bmp"
-    PdfNames = folder + "/" + str(j) + filetype
-    IMFullCommand.append(BitmapNames)
-    IMFullCommand.append(IMOption1_a)
-    IMFullCommand.append(IMOption1_b)
-    IMFullCommand.append(IMOption2_a)
-    IMFullCommand.append(IMOption2_b)
-    IMFullCommand.append(PdfNames)
-    subprocess.call(IMFullCommand)
-    PdfNames_List.append(" " + PdfNames)
-    PdfNames_List_osdel.append(PdfNames)
-    BitmapNames_list.append(BitmapNames)
+# Agrego las opciones finales despues de los nombres de los archivos
 
 
-GSPath = "C:/Program Files/gs/gs9.21/bin/gswin64.exe"
-GSDevice_pdf = "-sDEVICE=pdfwrite"
-GSOutput = "-sOUTPUTFILE=" + NewPDFPath
-GSOptionsBig = "-dAntiAliasColorImage=false" \
-                + " -dAntiAliasGrayImage=false" \
-                + " -dAntiAliasMonoImage=false" \
-                + " -dAutoFilterColorImages=false" \
-                + " -dAutoFilterGrayImages=false" \
-                + " -dDownsampleColorImages=false" \
-                + " -dDownsampleGrayImages=false" \
-                + " -dDownsampleMonoImages=false" \
-                + " -dColorConversionStrategy=/LeaveColorUnchanged" \
-                + " -dConvertCMYKImagesToRGB=false" \
-                + " -dConvertImagesToIndexed=false" \
-                + " -dUCRandBGInfo=/Preserve" \
-                + " -dPreserveHalftoneInfo=true" \
-                + " -dPreserveOPIComments=true" \
-                + " -dPreserveOverprintSettings=true"
 
-pdf_append = [GSPath, GSDevice_pdf, GSOption1, GSOption2, GSOptionsBig, GSOutput, PdfNames_List]
-subprocess.call(pdf_append)
+# Mando el commando para que se ejecute en ImageMagick
+
 
 # print("ImageMagick OK")
 i = i + 1
@@ -150,11 +138,7 @@ update_progress("ImageMagick OK", i / 8.0)
 
 # Con esta ultima parte se borran los bitmaps generados temporalmente
 
-for bitmaps in BitmapNames_list:
-    os.remove(bitmaps)
 
-for pdfs in PdfNames_List_osdel:
-    os.remove(pdfs)
 
 # print("Clean OK")
 i = i + .90
